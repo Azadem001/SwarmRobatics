@@ -76,7 +76,7 @@ reset_timestep	0
 
 # ----------------------------------------------------------------------
 # Main run
- fix             evo2D41 all evo2D41 ${eta} ${D} ${tau_v} ${tau_n} ${J} ${epsilon} ${alpha} ${alphaq} ${comm_radius} light ${controller} ${Seed}  
+ fix             evo2D all evo2D ${eta} ${D} ${tau_v} ${tau_n} ${J} ${epsilon} ${alpha} ${alphaq} ${comm_radius} light ${controller} ${Seed}  
 
 
 
