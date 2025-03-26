@@ -34,6 +34,13 @@ class DumpCustom : public Dump {
   const int ENDIAN = 0x0001;
 
  protected:
+ 
+  int num_points;                // Number of points for the custom dump
+  int start;
+  int end;
+
+  //int current_tstep;
+  //double log_base;
   int nevery;        // dump frequency for output
   char *idregion;    // region ID, nullptr if no region
 

@@ -28,8 +28,14 @@
 #include "region.h"
 #include "update.h"
 #include "variable.h"
-
+#include "iostream"
 #include <cstring>
+
+
+#include <vector>
+#include <set>
+#include <cmath>
+#include <algorithm>
 
 using namespace LAMMPS_NS;
 
@@ -45,7 +51,7 @@ enum{ID,MOL,PROC,PROCP1,TYPE,ELEMENT,MASS,
      OMEGAX,OMEGAY,OMEGAZ,ANGMOMX,ANGMOMY,ANGMOMZ,
      TQX,TQY,TQZ,
      COMPUTE,FIX,VARIABLE,IVEC,DVEC,IARRAY,DARRAY,
-     PHI0, PHI1, PHI2, QREWARD, OMEGAMU, BIAS,FACTIVE};
+     PHI0, PHI1, PHI2, QREWARD,FACTIVE, OMEGAMU, BIAS};
 enum{LT,LE,GT,GE,EQ,NEQ,XOR};
 
 #define ONEFIELD 32
@@ -66,8 +72,12 @@ DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
 
   clearstep = 1;
 
+
   nevery = utils::inumeric(FLERR,arg[3],false,lmp);
   if (nevery <= 0) error->all(FLERR,"Illegal dump custom command");
+
+ 
+
 
   // expand args if any have wildcard character "*"
   // ok to include trailing optional args,
@@ -159,6 +169,8 @@ DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
     cols += earg[iarg];
   }
   columns_default = utils::strdup(cols);
+  
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -168,6 +180,7 @@ DumpCustom::~DumpCustom()
   // if wildcard expansion occurred, free earg memory from expand_args()
   // could not do in constructor, b/c some derived classes process earg
 
+   // std::cout<<"current_time = "<< update->ntimestep <<std::endl;         
   if (expand) {
     for (int i = 0; i < nargnew; i++) delete[] earg[i];
     memory->sfree(earg);
@@ -231,6 +244,7 @@ DumpCustom::~DumpCustom()
 
   delete[] columns_default;
   delete[] columns;
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -346,12 +360,17 @@ void DumpCustom::init_style()
   // open single file, one time only
 
   if (multifile == 0) openfile();
+  
+
+
 }
 
 /* ---------------------------------------------------------------------- */
 
 void DumpCustom::write_header(bigint ndump)
 {
+
+
   if (multiproc) (this->*header_choice)(ndump);
   else if (me == 0) (this->*header_choice)(ndump);
 }
@@ -360,6 +379,7 @@ void DumpCustom::write_header(bigint ndump)
 
 void DumpCustom::format_magic_string_binary()
 {
+
   // use negative ntimestep as marker for new format
   bigint fmtlen = strlen(MAGIC_STRING);
   bigint marker = -fmtlen;
@@ -371,6 +391,7 @@ void DumpCustom::format_magic_string_binary()
 
 void DumpCustom::format_endian_binary()
 {
+
   int endian = ENDIAN;
   fwrite(&endian, sizeof(int), 1, fp);
 }
@@ -379,6 +400,7 @@ void DumpCustom::format_endian_binary()
 
 void DumpCustom::format_revision_binary()
 {
+
   int revision = FORMAT_REVISION;
   fwrite(&revision, sizeof(int), 1, fp);
 }
@@ -387,6 +409,7 @@ void DumpCustom::format_revision_binary()
 
 void DumpCustom::header_unit_style_binary()
 {
+
   int len = 0;
   if (unit_flag && !unit_count) {
     ++unit_count;
@@ -402,6 +425,7 @@ void DumpCustom::header_unit_style_binary()
 
 void DumpCustom::header_columns_binary()
 {
+
   int len = strlen(columns);
   fwrite(&len, sizeof(int), 1, fp);
   fwrite(columns, sizeof(char), len, fp);
@@ -411,6 +435,7 @@ void DumpCustom::header_columns_binary()
 
 void DumpCustom::header_time_binary()
 {
+
   char flag = time_flag ? 1 : 0;
   fwrite(&flag, sizeof(char), 1, fp);
 
@@ -433,6 +458,7 @@ void DumpCustom::header_format_binary()
 
 void DumpCustom::header_binary(bigint ndump)
 {
+
   header_format_binary();
 
   fwrite(&update->ntimestep,sizeof(bigint),1,fp);
@@ -488,17 +514,38 @@ void DumpCustom::header_binary_triclinic(bigint ndump)
 
 void DumpCustom::header_item(bigint ndump)
 {
-  /*if (unit_flag && !unit_count) {
-    ++unit_count;
-    fmt::print(fp,"ITEM: UNITS\n{}\n",update->unit_style);
-  }
-  if (time_flag) fmt::print(fp,"ITEM: TIME\n{:.16}\n",compute_time());
 
-  fmt::print(fp,"ITEM: TIMESTEP\n{}\n"
-             "ITEM: NUMBER OF ATOMS\n{}\n",
-             update->ntimestep, ndump);
+  //if (unit_flag && !unit_count) {
+   // ++unit_count;
+   // fmt::print(fp,"ITEM: UNITS\n{}\n",update->unit_style);
+  //}
+//  if (time_flag) fmt::print(fp,"ITEM: TIME\n{:.16}\n",compute_time());
+//std::cout<<"current_time = "<< update->ntimestep <<std::endl;
+  /*fmt::print(fp,"ITEM: TIMESTEP\n{}\n"
+            "ITEM: NUMBER OF ATOMS\n{}\n",
+             update->ntimestep, ndump);*/
+             
+             
+ //fmt::print(fp,"ITEM: TIMESTEP\n{}\n", update->ntimestep);
+             
 
-  fmt::print(fp,"ITEM: BOX BOUNDS {}\n"
+// Store the actual timestep in current_time (optional step for clarity)
+//double current_time = static_cast<double>(update->ntimestep);
+
+// Calculate nevery using a logarithmic scale
+//double log_nevery = 10 * log(current_time);  // Adjust the base factor as needed
+//int dynamic_nevery = static_cast<int>(log_nevery);
+
+// Ensure nevery is always positive and non-zero
+//if (dynamic_nevery <= 0) {
+ //   dynamic_nevery = 1;  // Ensure at least one dump happens
+//}
+
+// Set nevery based on dynamic_nevery
+//nevery = dynamic_nevery;
+
+
+  /*fmt::print(fp,"ITEM: BOX BOUNDS {}\n"
              "{:>1.16e} {:>1.16e}\n"
              "{:>1.16e} {:>1.16e}\n"
              "{:>1.16e} {:>1.16e}\n",
@@ -511,11 +558,11 @@ void DumpCustom::header_item(bigint ndump)
 
 void DumpCustom::header_item_triclinic(bigint ndump)
 {
-  /*if (unit_flag && !unit_count) {
-    ++unit_count;
-    fmt::print(fp,"ITEM: UNITS\n{}\n",update->unit_style);
-  }
-  if (time_flag) fmt::print(fp,"ITEM: TIME\n{:.16}\n",compute_time());
+  //if (unit_flag && !unit_count) {
+    //++unit_count;
+    //fmt::print(fp,"ITEM: UNITS\n{}\n",update->unit_style);
+ // }
+  /*if (time_flag) fmt::print(fp,"ITEM: TIME\n{:.16}\n",compute_time());
 
   fmt::print(fp,"ITEM: TIMESTEP\n{}\n"
              "ITEM: NUMBER OF ATOMS\n{}\n",
@@ -680,8 +727,7 @@ int DumpCustom::count()
       	ptr = atom->f_active;
         nstride = 1;
       
-      }
-	  else if(thresh_array[ithresh] == OMEGAMU){
+      }else if(thresh_array[ithresh] == OMEGAMU){
       	ptr = &atom->omega_mu[0];
         nstride = 1;
       
@@ -1172,6 +1218,8 @@ int DumpCustom::count()
     if (choose[i]) clist[nchoose++] = i;
 
   return nchoose;
+  
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1226,7 +1274,51 @@ int DumpCustom::convert_string(int n, double *mybuf)
 
 void DumpCustom::write_data(int n, double *mybuf)
 {
+
+   //std::cout<<"nevery = "<< nevery<<std::endl;
+ 
+ 
+ 
+  /** Normal scale dump*/ 
+  if (nevery != 1) { 
   (this->*write_choice)(n,mybuf);
+}
+
+
+
+/** Log scale dump*/
+if (nevery==1){
+
+        std::set<int> unique_times;
+    unique_times.insert(0); // Add initial value
+    
+    int num_points = 1000;
+    double start = 0, end = 7;
+    
+    for (int i = 0; i < num_points; ++i) {
+        double value = std::floor(std::pow(10, start + i * (end - start) / (num_points - 1)));
+        unique_times.insert(static_cast<int>(value));
+    }
+
+    // Convert set to vector
+  std::vector<int> t(unique_times.begin(), unique_times.end());
+  
+  
+  
+double current_time = static_cast<double>(lmp->update->ntimestep);
+
+    // Check if the current timestep is in t
+    if (std::binary_search(t.begin(), t.end(), current_time)) {
+    
+    //std::cout<<"nevery1 = "<< current_time<<std::endl;
+   (this->*write_choice)(n,mybuf);
+        
+    }
+}
+        
+  
+  
+  
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1312,11 +1404,10 @@ int DumpCustom::parse_fields(int narg, char **arg)
     } else if (strcmp(arg[iarg],"qreward") == 0) {
       pack_choice[iarg] = &DumpCustom::pack_qreward;
       vtype[iarg] = Dump::DOUBLE;
-    }else if (strcmp(arg[iarg],"factive") == 0) {
+    }  else if (strcmp(arg[iarg],"factive") == 0) {
       pack_choice[iarg] = &DumpCustom::pack_factive;
       vtype[iarg] = Dump::DOUBLE;
-    }
-	 else if (strcmp(arg[iarg],"omega_mu") == 0) {
+    } else if (strcmp(arg[iarg],"omega_mu") == 0) {
       pack_choice[iarg] = &DumpCustom::pack_omegamu;
       vtype[iarg] = Dump::DOUBLE;
     } else if (strcmp(arg[iarg],"bias") == 0) {
@@ -1842,7 +1933,6 @@ int DumpCustom::modify_param(int narg, char **arg)
     else if (strcmp(arg[1],"qreward") == 0) thresh_array[nthresh] = QREWARD;
     else if (strcmp(arg[1],"factive") == 0) thresh_array[nthresh] = FACTIVE;
 
-    
     else if (strcmp(arg[1],"omega_mu") == 0) thresh_array[nthresh] = OMEGAMU;
     else if (strcmp(arg[1],"bias") == 0) thresh_array[nthresh] = BIAS;
 
