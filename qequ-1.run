@@ -1,0 +1,93 @@
+# Define initial parameters
+variable       nrun index 1
+variable       maxrun equal 100
+variable       n equal 0
+# Loop start
+label          loop
+
+# Increase the run counter
+variable       n equal ${n}+1
+
+variable	N equal 900 # Number of particles
+variable 	Seed equal  933641+1060*${n}+66*${n}+247*${n}
+variable	runtime_Main1 equal 1000000	# Runtime in timesteps
+variable	runtime_Main2 equal 10000000	# Runtime in timesteps
+variable	dump_freq equal 1	# Data dumping frequency
+variable	dt equal 0.001
+
+# PARAMETERS ------------------------------------------------------------
+variable	eta equal 0.0001	# Mutation intensity
+variable	tau_n index 0.1 	
+variable	tau_v equal 1 		
+variable	J equal 0		
+variable	D equal 0.5		
+variable	epsilon index 0 	
+variable	alpha equal 0	# Start with alpha = 0
+variable	alphaq equal 0.01	
+variable	comm_radius equal 1.122	
+variable	controller equal 0	
+
+region          light block -15 15 -80  80 -0.2 0.2 units box
+
+# Perform a short brownian motion with a repulsive potential gradually increasing from zero
+variable	WCA_cut equal 1.122
+variable 	runtime_Soft equal 50000
+
+units           lj
+dimension       3
+boundary        p p p
+atom_style      hybrid sphere robot
+
+region          box block -30  30 -75  75 -0.2 0.2 units box
+create_box      1 box
+timestep        ${dt}
+
+# Setup equilibration: adding particles randomly
+pair_style      soft ${WCA_cut}
+pair_coeff      * * 0.0
+variable        prefactor equal ramp(0,100) 
+create_atoms	1 random ${N} ${Seed} box 
+
+fix             1 all brownian 0.0001 ${Seed} gamma_t 1.0 
+fix             2 all adapt 1 pair soft a * * v_prefactor
+thermo		10000
+run             ${runtime_Soft}
+unfix		1
+unfix           2
+
+# Set up main run: change particle interactions to WCA
+pair_style	lj/cut ${WCA_cut} 
+pair_modify	shift yes 
+pair_coeff	* * 1 1 ${WCA_cut}  
+
+reset_timestep	0
+
+# ---------------------------------------------------------------# First stage: Alpha = 0
+print "Starting main run with alpha = 0"
+
+fix             evo2D all evo2D ${eta} ${D} ${tau_v} ${tau_n} ${J} ${epsilon} ${alpha} ${alphaq} ${comm_radius} light ${controller} ${Seed}  
+
+run             ${runtime_Main1} # Run the first stage with alpha = 0
+
+# Reset timestep before switching alpha
+reset_timestep	0
+
+# Modify alpha value
+variable alpha equal 1000  # Switching alpha on
+unfix evo2D  # Remove previous fix
+
+print "Switching alpha on"
+
+# Second stage: Alpha = 1000
+fix             evo2D all evo2D ${eta} ${D} ${tau_v} ${tau_n} ${J} ${epsilon} ${alpha} ${alphaq} ${comm_radius} light ${controller} ${Seed}  
+
+# Dump only after alpha = 1000
+dump               tj3 all custom ${dump_freq} Data_${n}.txt id x qreward factive
+
+run             ${runtime_Main2}  # Run the second stage with alpha = 1000
+
+
+clear 
+if "${n} < ${maxrun}" then "jump SELF loop"
+print "Simulation completed for all runs."
+
